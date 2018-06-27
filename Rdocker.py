@@ -41,6 +41,7 @@ def Summary(hdr):
     print( '\t\tCreate container opts: ' + createopts )
     print( '\t\tBind-mount local dir: ' + localdir )
     print( '\t\tBind-mount docker dir: ' + dockerdir )
+    print( '\t\tDatamap: ' + datamap )
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
 
@@ -48,14 +49,17 @@ defCreateOpts = "-it"
 defDockerImage = "uwgac/topmed-rstudio"
 defName = "Rdocker"
 defDockerDir = "/home/rstudio"
+defDataMap = None
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run R in docker" )
-parser.add_argument( "-l", "--localdir",
+parser.add_argument( "-L", "--localdir",
                      help = "full path of local work directory [default: current working directory]" )
-parser.add_argument( "-d", "--dockerdir", default = defDockerDir,
+parser.add_argument( "-D", "--dockerdir", default = defDockerDir,
                      help = "full path of docker work directory [default: " + defDockerDir +"]" )
-parser.add_argument( "-i", "--image", default = defDockerImage,
+parser.add_argument( "-d", "--datamap", default = defDataMap,
+                     help = "local data directory map (e.g., /projects/data:/data) [default: " + str(defDataMap) +"]" )
+parser.add_argument( "-I", "--image", default = defDockerImage,
                      help = "docker image to initiate pipeline execution [default: " + defDockerImage + "]")
 parser.add_argument( "-c", "--createopts", default = defCreateOpts,
                      help = "docker create container options [default: " + defCreateOpts + "]")
@@ -76,6 +80,7 @@ args = parser.parse_args()
 # set result of arg parse_args
 localdir = args.localdir
 dockerdir = args.dockerdir
+datamap = args.datamap
 image = args.image
 createopts = args.createopts
 existingcontainer = args.existingcontainer
@@ -95,6 +100,15 @@ if not existingcontainer:
     # check localdir; if not passed using cwd
     if localdir == None:
         localdir = os.getenv('PWD')
+    # check if datamap is specified
+    if datamap == None:
+        dockermap = ""
+    else:
+        if len(datamap.split(":")) == 2:
+            dockermap = " -v " + datamap
+        else:
+            pError("Datamap (" + datamap + ") must be specified as lll:ddd")
+            sys.exit(2)
 else:
     localdir = "N/A"
     dockerdir = "N/A"
@@ -111,7 +125,7 @@ print("=====================================================================")
 # create container
 if not existingcontainer:
     createCMD = "docker create " + createopts + " --name " + name + \
-                " -v " + localdir + ":" + dockerdir + \
+                " -v " + localdir + ":" + dockerdir + dockermap + \
                 " -w " + dockerdir + \
                 " " + image + " R"
     if verbose:

@@ -42,6 +42,7 @@ def Summary(hdr):
     print( '\t\tLocal host IP: ' + ip )
     print( '\t\tBind-mount local dir: ' + localdir )
     print( '\t\tBind-mount docker dir: ' + dockerdir )
+    print( '\t\tDatamap: ' + datamap )
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
 
@@ -53,20 +54,23 @@ defHostIP = "localhost"
 defDockerPort = "8787"
 defRunCmd = "run"
 defKillCmd = "kill"
+defDataMap = None
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run Rstudio server in docker" )
-parser.add_argument( "-l", "--localdir",
+parser.add_argument( "-L", "--localdir",
                      help = "full path of local work directory [default: current working directory]" )
-parser.add_argument( "-d", "--dockerdir", default = defDockerDir,
+parser.add_argument( "-D", "--dockerdir", default = defDockerDir,
                      help = "full path of docker work directory [default: " + defDockerDir +"]" )
+parser.add_argument( "-d", "--datamap", default = defDataMap,
+                     help = "local data directory map (e.g., /projects/data:/data) [default: " + str(defDataMap) +"]" )
 parser.add_argument( "-I", "--image", default = defDockerImage,
                      help = "docker image to initiate pipeline execution [default: " + defDockerImage + "]")
 parser.add_argument( "-p", "--port", default = defLocalPort,
                      help = "Local computer's port mapped to Rstudio in docker [default: " + defLocalPort + "]")
 parser.add_argument( "-i", "--ip", default = defHostIP,
                      help = "Local computer's IP mapped to docker's IP [default: " + defHostIP + "]")
-parser.add_argument( "-D", "--dockerport", default = defDockerPort,
+parser.add_argument( "--dockerport", default = defDockerPort,
                      help = "Rstudio server's port in docker [default: " + defDockerPort + "]")
 parser.add_argument( "-n","--name", default = defName,
                      help = "name of container [default: " + defName + "]" )
@@ -81,6 +85,7 @@ parser.add_argument( "--version", action="store_true", default = False,
 
 args = parser.parse_args()
 # set result of arg parse_args
+datamap = args.datamap
 localdir = args.localdir
 dockerdir = args.dockerdir
 dockerport = args.dockerport
@@ -104,6 +109,16 @@ if localdir == None:
 if ip == defHostIP:
     ip = "127.0.0.1"
 
+# check if datamap is specified
+if datamap == None:
+    dockermap = ""
+else:
+    if len(datamap.split(":")) == 2:
+        dockermap = " -v " + datamap
+    else:
+        pError("Datamap (" + datamap + ") must be specified as lll:ddd")
+        sys.exit(2)
+
 # summarize and check for required params
 if summary or verbose:
     Summary("Summary of " + __file__)
@@ -114,7 +129,7 @@ if command == defRunCmd:
     pInfo("\n\tRunning Rstudio server in docker image: " + image)
     print("=====================================================================")
     dockerCMD = "docker run -d -t " + " --name " + name + \
-                " -v " + localdir + ":" + dockerdir + \
+                " -v " + localdir + ":" + dockerdir + dockermap + \
                 " -w " + dockerdir + \
                 " -p " + ip + ":" + port + ":" + dockerport + \
                 " " + image
