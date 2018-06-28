@@ -9,18 +9,52 @@ This project contains python helper scripts to run a docker image associated wit
 These python scripts provide common features including:
 1. Script help (<i>**--help**</i>)
 2. Running a specified docker image (default: <i>**uwgac/topmed-rstudio**</i>)
-2. Bind-mounting of local working directory to docker  (docker run option <i>**-v**</i>)
-3. Passing command and command arguments to the docker image
-4. Running the docker image with appropriate options and command arguments
+2. Bind-mounting of local working directory to docker  (via docker run option <i>**-v**</i>)
+3. Passing command and command arguments to the docker image (via docker run arguments)
+
 
 #### analysis_pipeline.py ####
-Execute analysis pipeline (e.g., <i>grm</i>) on AWS batch. The general command syntax is:
+This script runs the topmed docker image in an interactive mode enabling analysts to execute the analysis pipeline on AWS batch.
+
+In order to execute the analysis pipeline on AWS batch, topmed project data and analyst's configuration data must be accessible from AWS batch.   The NFS server on AWS provides a mechanism to share this data on the local computer and in AWS batch.  When executing this script, the user's current working directory should be on the NFS server's volume (e.g., <i>/projects/topmed/analysts/kuraisa/freeze5b/memtest/grm</i>).
+
+
+The general command syntax is:
 ```{r}
 analysis_pipeline.py -a <analysis pipeline> -p <pipeline parameters> [options]
 ```
 Execute <i>analysis_pipeline.py --help</i> for more details.
 
-<i>Examples</i>
+<i>Example</i>
+
+```{r}
+# ssh to aws instance where the NFS volume is mounted
+ssh -i ~/.ssh/<private key> kuraisa@52.27.98.54
+# get the docker helper functions
+git clone https://github.com/uw-gac/docker_helpers
+alias pipeline='/home/kuraisa/docker_helpers/analysis_pipeline.py'
+# cd to a working directory
+cd /projects/topmed/analysts/kuraisa/workshop/grm
+# run the docker image
+pipeline
+```
+This example illustrates connecting to an pre-configured AWS instance; downloading the helper functions; cd-ing to a working directory; and executing the helper function to run the docker image (defaults to uw-gac/topmed-master).
+
+The docker image is run interactively and the current docker working directory is mapped to the working directory on the local computer (<i>/projects/topmed/analysts/kuraisa/workshop/grm</i>).
+
+At this point, any bash command can be executed including executing the analysis pipeline for <i>grm</i>.  
+
+For example, to print out a summary of a grm analylsis (without submitting to AWS batch):
+
+```{r}
+/usr/local/analysis_pipeline/grm.py --cluster_type AWS_Batch  --print ../config/grm.config
+```
+
+To actually submit the grm analysis to AWS batch, just remove <i>--print</i> option.  For example,
+
+```{r}
+/usr/local/analysis_pipeline/grm.py --cluster_type AWS_Batch ../config/grm.config
+```
 
 #### ap_analysis.py ####
 Execute interactively an analysis stage in an analysis pipeline (which is useful for debugging or testing).  The general command syntax is:
@@ -30,6 +64,16 @@ ap_analysis.py -a <analysis> -p <analysis parameters> [options]
 Execute <i>ap_analysis.py --help</i> for more details.
 
 <i>Examples</i>
+1. <i>Example 1</i>
+```{r}
+ap_analysis.py -a null_model -p "config/mem_test_null_model.config"
+```
+
+2. <i>Example 2</i>
+```{r}
+ap_analysis.py -a null_model -p "config/mem_test_null_model.config"
+```
+
 #### Rdocker.py ####
 Run R interactively by creating a docker container (default named <i>Rdocker</i>) and running R interactively.  
 
