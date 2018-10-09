@@ -7,6 +7,7 @@ import     sys
 import     os.path
 import     os
 import     subprocess
+import     getpass
 from       argparse import ArgumentParser
 from       datetime import datetime, timedelta
 
@@ -82,8 +83,8 @@ parser.add_argument( "--dockersecurity", default = defDockerSecurity,
                      help = "security file location in docker [default: " + defDockerSecurity + "]" )
 parser.add_argument( "-e","--existingcontainer", action="store_true", default = False,
                      help = "start an existing container [default: False]" )
-parser.add_argument( "-n","--name", default = defName,
-                     help = "name of container [default: " + defName + "]" )
+parser.add_argument( "-n","--name",
+                     help = "name of container [default: analysis_pipeline_<username>]" )
 parser.add_argument( "-k", "--keepcontainer", action="store_true", default = False,
                      help = "Keep the container and do not stop it [default: False]" )
 parser.add_argument( "-V", "--verbose", action="store_true", default = False,
@@ -107,6 +108,10 @@ name = args.name
 keepcontainer = args.keepcontainer
 verbose = args.verbose
 summary = args.summary
+# set container name
+if name == None:
+    user = getpass.getuser()
+    name = defName + "_" + user
 # version
 if args.version:
     print(__file__ + " version: " + version)
