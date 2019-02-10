@@ -60,7 +60,6 @@ def Summary(hdr):
     print( '\tTime: ' + tbegin + "\n" )
 
 defCreateOpts = "-it"
-defDockerSecurity = "/root/.aws"
 defLocalSecurity = "~/.aws"
 defDockerImage = "uwgac/topmed-master"
 defName = "analysis_pipeline"
@@ -69,6 +68,8 @@ defName = "analysis_pipeline"
 parser = ArgumentParser( description = "Helper function to run a topmed docker image interactively for running the analysis pipeline" )
 parser.add_argument( "-w", "--workdir",
                      help = "working directory (full path) [default: current working directory]" )
+parser.add_argument( "-u", "--user",
+                     help = "user account in docker [default: current user]" )
 parser.add_argument( "-d", "--dataroot", default = None,
                      help = "topmed project data root in local computer [default: root dir of working directory]" )
 parser.add_argument( "-D", "--dockerroot", default = None,
@@ -78,9 +79,9 @@ parser.add_argument( "-i", "--image", default = defDockerImage,
 parser.add_argument( "-c", "--createopts", default = defCreateOpts,
                      help = "docker create container options [default: " + defCreateOpts + "]")
 parser.add_argument( "--localsecurity", default = defLocalSecurity,
-                     help = "aws credentials file to map to docker [default: ]" + defLocalSecurity + "]" )
-parser.add_argument( "--dockersecurity", default = defDockerSecurity,
-                     help = "security file location in docker [default: " + defDockerSecurity + "]" )
+                     help = "aws credentials file to map to docker [default: " +defLocalSecurity + "]" )
+parser.add_argument( "--dockersecurity", default = None,
+                     help = "security file location in docker [default: .aws in user's home directory ]" )
 parser.add_argument( "-e","--existingcontainer", action="store_true", default = False,
                      help = "start an existing container [default: False]" )
 parser.add_argument( "-n","--name",
@@ -108,9 +109,15 @@ name = args.name
 keepcontainer = args.keepcontainer
 verbose = args.verbose
 summary = args.summary
+user = args.user
+# set user
+if user == None:
+    user = getpass.getuser()
+# docker security
+if dockersecurity == None:
+    dockersecurity = "/home/" + user + "/.aws"
 # set container name
 if name == None:
-    user = getpass.getuser()
     name = defName + "_" + user
 # version
 if args.version:
@@ -153,6 +160,7 @@ if not existingcontainer:
                 " -v " + dataroot + ":" + dockerroot + \
                 " -v " + localsecurity + ":" + dockersecurity + \
                 " -w " + workdir + \
+                " -u " + user + \
                 " " + image
     if verbose:
         pInfo("Docker create container cmd:\n" + createCMD)
