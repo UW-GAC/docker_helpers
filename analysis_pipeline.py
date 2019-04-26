@@ -63,13 +63,14 @@ defCreateOpts = "-it"
 defLocalSecurity = "~/.aws"
 defDockerImage = "uwgac/topmed-master"
 defName = "analysis_pipeline"
+defUser = "analyst"
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run a topmed docker image interactively for running the analysis pipeline" )
 parser.add_argument( "-w", "--workdir",
                      help = "working directory (full path) [default: current working directory]" )
-parser.add_argument( "-u", "--user",
-                     help = "user account in docker [default: current user]" )
+parser.add_argument( "-u", "--user", default = defUser
+                     help = "working directory (full path) [default: " + defUser + "]" )
 parser.add_argument( "-d", "--dataroot", default = None,
                      help = "topmed project data root in local computer [default: root dir of working directory]" )
 parser.add_argument( "-D", "--dockerroot", default = None,
@@ -110,9 +111,6 @@ keepcontainer = args.keepcontainer
 verbose = args.verbose
 summary = args.summary
 user = args.user
-# set user
-if user == None:
-    user = getpass.getuser()
 # docker security
 if dockersecurity == None:
     dockersecurity = "/home/" + user + "/.aws"
