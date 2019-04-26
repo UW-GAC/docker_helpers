@@ -63,7 +63,7 @@ defCreateOpts = "-it"
 defLocalSecurity = "~/.aws"
 defDockerImage = "uwgac/topmed-master"
 defName = "analysis_pipeline"
-defUser = "analyst"
+defUser = "root"
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run a topmed docker image interactively for running the analysis pipeline" )
@@ -113,7 +113,10 @@ summary = args.summary
 user = args.user
 # docker security
 if dockersecurity == None:
-    dockersecurity = "/home/" + user + "/.aws"
+    if user == "root":
+        dockersecurity = "/" + user + "/.aws"
+    else:
+        dockersecurity = "/home/" + user + "/.aws"
 # set container name
 if name == None:
     name = defName + "_" + user
