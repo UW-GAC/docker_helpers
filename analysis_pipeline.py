@@ -69,7 +69,7 @@ defUser = "analyst"
 parser = ArgumentParser( description = "Helper function to run a topmed docker image interactively for running the analysis pipeline" )
 parser.add_argument( "-w", "--workdir",
                      help = "working directory (full path) [default: current working directory]" )
-parser.add_argument( "-u", "--user", default = defUser
+parser.add_argument( "-u", "--user", default = defUser,
                      help = "working directory (full path) [default: " + defUser + "]" )
 parser.add_argument( "-d", "--dataroot", default = None,
                      help = "topmed project data root in local computer [default: root dir of working directory]" )
