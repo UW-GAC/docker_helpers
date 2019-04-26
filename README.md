@@ -5,8 +5,7 @@ This project contains python helper scripts to run a docker image associated wit
 2. ap_analysis.py
 3. Rdocker.py
 4. Rstudio_docker.py
-5. jobmgmt.py
-6. jstatus.py
+5. jstatus.py
 
 These python scripts provide common features including:
 1. Script help (<i>**--help**</i>)
@@ -140,9 +139,6 @@ The example above runs Rstudio server in the background in the container named <
 Rstudio_docker.py -C kill
 ```
 The example above kills the background docker container named <i>rstudio</i>
-
-#### jobmgmt.py ####
-A python script to help manage submitted batch jobs.  Execute with -h option for details.
 
 #### jstats.py ####
 A python script to get stats for jobs in a jobinfo file.  Execute with -h option for details.
