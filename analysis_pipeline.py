@@ -111,6 +111,7 @@ keepcontainer = args.keepcontainer
 verbose = args.verbose
 summary = args.summary
 user = args.user
+cuser = user = getpass.getuser()
 # docker security
 if dockersecurity == None:
     if user == "root":
@@ -119,7 +120,7 @@ if dockersecurity == None:
         dockersecurity = "/home/" + user + "/.aws"
 # set container name
 if name == None:
-    name = defName + "_" + user
+    name = defName + "_" + cuser
 # version
 if args.version:
     print(__file__ + " version: " + version)
