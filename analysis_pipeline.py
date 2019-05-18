@@ -111,7 +111,7 @@ keepcontainer = args.keepcontainer
 verbose = args.verbose
 summary = args.summary
 user = args.user
-cuser = user = getpass.getuser()
+cuser = getpass.getuser()
 # docker security
 if dockersecurity == None:
     if user == "root":
