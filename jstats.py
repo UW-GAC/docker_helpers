@@ -333,4 +333,3 @@ else:
                     print("\t" + key + ": " + task[key])
     else:
         jobdel(batchC, jobid, printout = True, verbose = debug)
-
