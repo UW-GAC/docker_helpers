@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # this script runs a topmed docker image so that users can interactively run the
 # analysis pipeline.
 import     time
@@ -30,16 +30,16 @@ def add2parameters(inparams,inopt,inoptVal):
 
 def pInfo(msg):
     tmsg=time.asctime()
-    print msgInfoPrefix+tmsg+": "+msg
+    print(msgInfoPrefix+tmsg+": "+msg)
 
 def pError(msg):
     tmsg=time.asctime()
-    print msgErrPrefix+tmsg+": "+msg
+    print(msgErrPrefix+tmsg+": "+msg)
 
 def pDebug(msg):
     if debug:
         tmsg=time.asctime()
-        print debugPrefix+tmsg+": "+msg
+        print(debugPrefix+tmsg+": "+msg)
 
 def Summary(hdr):
     print(hdr)

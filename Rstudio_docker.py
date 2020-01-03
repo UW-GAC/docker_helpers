@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # this script creates a docker container to run Rstudio server in the background
 # so that a local browser can execute Rstudio
 import     time
@@ -19,16 +19,16 @@ debugPrefix='>>> Debug (' + os.path.basename(__file__) +')'
 # def functions
 def pInfo(msg):
     tmsg=time.asctime()
-    print msgInfoPrefix+tmsg+": "+msg
+    print(msgInfoPrefix+tmsg+": "+msg)
 
 def pError(msg):
     tmsg=time.asctime()
-    print msgErrPrefix+tmsg+": "+msg
+    print(msgErrPrefix+tmsg+": "+msg)
 
 def pDebug(msg):
     if debug:
         tmsg=time.asctime()
-        print debugPrefix+tmsg+": "+msg
+        print(debugPrefix+tmsg+": "+msg)
 
 def Summary(hdr):
     print(hdr)
