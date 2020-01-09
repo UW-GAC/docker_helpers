@@ -9,10 +9,35 @@ This project contains python helper scripts to run a docker image associated wit
 
 These python scripts provide common features including:
 1. Script help (<i>**--help**</i>)
-2. Running a specified docker image (default: <i>**uwgac/topmed-rstudio**</i>)
-2. Bind-mounting of local working directory to docker  (via docker run option <i>**-v**</i>)
-3. Passing command and command arguments to the docker image (via docker run arguments)
+2. Running a specified docker image (default: <i>**uwgac/topmed-devel**</i>)
+3. Bind-mounting of local root folders to the docker container
 
+#### Rdocker.py ####
+Run R interactively by creating a docker container and running R interactively.  
+
+The characteristics and attributes of the R session includes:
+1. By default, the current working directory on the local computer is mapped to the container's working directory
+3. By default, __/projects__ on the local computer is mapped to the container
+3. Optionally, users can specify R_USERS_LIB.
+
+The general command syntax is:
+```{r}
+Rdocker.py [options]
+```
+Execute __Rdocker.py --help__ for more details.
+
+<i>Examples</i>
+1. <i>Example 1</i>
+```{r}
+Rdocker.py
+```
+Example 1 runs R interactively in a container named __Rdocker__.  The current working directory in the local computer is mapped to the docker container; __/projects__ is also mapped to the docker container
+
+2. <i>Example 2</i>
+```{r}
+Rdocker.py -w /home/user1 -m /tmp,/projects --rlibs /tmp -I uwgac/topmed-devel
+```
+Example 2 runs the docker image __uwgac/topmed-devel__ and R interactively.  The directory __/home/user1__ becomes the working directory in the container; __R_LIBS_USER__  is assigned __/tmp__; and both __/tmp__ and __/projects__ on the local computer is mapped to the docker container.
 
 #### analysis_pipeline.py ####
 This script runs the topmed docker image in an interactive mode enabling analysts to execute the analysis pipeline on AWS batch.
@@ -20,10 +45,6 @@ This script runs the topmed docker image in an interactive mode enabling analyst
 In order to execute the analysis pipeline on AWS batch, topmed project data and analyst's configuration data must be accessible from AWS batch.   The NFS server on AWS provides a mechanism to share this data on the local computer and in AWS batch.  When executing this script, the user's current working directory should be on the NFS server's volume (e.g., <i>/projects/topmed/analysts/kuraisa/freeze5b/memtest/grm</i>).
 
 
-The general command syntax is:
-```{r}
-analysis_pipeline.py -a <analysis pipeline> -p <pipeline parameters> [options]
-```
 Execute <i>analysis_pipeline.py --help</i> for more details.
 
 <i>Example</i>
@@ -74,34 +95,6 @@ ap_analysis.py -a null_model -p "config/mem_test_null_model.config"
 ```{r}
 ap_analysis.py -a null_model -p "config/mem_test_null_model.config"
 ```
-
-#### Rdocker.py ####
-Run R interactively by creating a docker container (default named <i>Rdocker</i>) and running R interactively.  
-
-The characteristics and attributes of the R session includes:
-1. When R initially starts up, the current working directory in the container is <i>/home/rstudio</i>
-2. By default, the current working directory on the local computer is mapped to the container's working directory of R
-3. Optionally, an additional data folder on the local computer can be mapped into the container (<i>-d</i> option)
-3. Optionally, the container can persist (<i>-k</i> option) and re-executed (<i>-e</i> option).
-
-The general command syntax is:
-```{r}
-Rdocker.py [options]
-```
-Execute <i>Rdocker.py --help</i> for more details.
-
-<i>Examples</i>
-1. <i>Example 1</i>
-```{r}
-Rdocker.py
-```
-Example 1 runs R interactively in a container named <i>Rdocker</i>.  The current working directory in the local computer is mapped to <i>/home/rstudio</i>.
-
-2. <i>Example 2</i>
-```{r}
-Rdocker.py -d /projects/topmed:/data
-```
-Example 2 runs R interactively in a container named <i>Rdocker</i>.  The current working directory in the local computer is mapped to <i>/home/rstudio</i> and the local directory <i>/projects/topmed</i> is mapped in the container to <i>/data</i>.
 
 #### Rstudio_docker.py ####
 Run Rstudio server within a docker container in the background (or detached).  This enables a browser on a local computer to start an Rstudio session.
