@@ -10,7 +10,7 @@ from       argparse import ArgumentParser
 from       datetime import datetime, timedelta
 
 # init globals
-version='1.0'
+version='2.0'
 msgErrPrefix='>>> Error (' + os.path.basename(__file__) +')'
 msgInfoPrefix='>>> Info (' + os.path.basename(__file__) +')'
 debugPrefix='>>> Debug (' + os.path.basename(__file__) +')'
@@ -29,46 +29,57 @@ def pDebug(msg):
         tmsg=time.asctime()
         print(debugPrefix+tmsg+": "+msg)
 
+def popen(cmd, sout=subprocess.PIPE, serr=subprocess.PIPE):
+    process = subprocess.Popen(cmd, stdout=sout, stderr=serr, shell=True)
+    status = process.wait()
+    if status != 0:
+        if serr != sys.stderr:
+            pipe = process.stderr
+            eMsg = pipe.readline()
+        else:
+            eMsg = "See terminal"
+        pError("Error executing cmd: \n\t" + cmd)
+        pError("Error status: " + str(status) + " - " + eMsg)
+        sys.exit(2)
+    if sout != sys.stdout:
+        pipe = process.stdout
+        sub_out = pipe.readline()
+        # compatibility p2/p3: byte seq or string converts to string
+        sub_out = bytes(sub_out).decode()
+    else:
+        sub_out = ""
+    return sub_out
+
 def Summary(hdr):
     print(hdr)
     print( '\tVersion: ' + version)
 
-    print( '\tDocker:' )
-    print( '\t\tUse existing container: ' + str(existingcontainer) )
+    print( '\tDocker Options:' )
     print( '\t\tKeep container: ' + str(keepcontainer) )
-    print( '\t\tContainer name: ' + name )
+    print( '\t\tContainer name: ' + cname )
     print( '\t\tImage: ' + image )
-    print( '\t\tCreate container opts: ' + createopts )
-    print( '\t\tBind-mount local dir: ' + localdir )
-    print( '\t\tBind-mount docker dir: ' + dockerdir )
-    print( '\t\tDatamap: ' + datamap )
+    print( '\t\tvolume opts: ' + vols_opt )
+    print( '\t\tenvironment opts: ' + env_opt )
+    print( '\tDocker run command: \n\t' + run_cmd)
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
 
-defCreateOpts = "-it"
-defDockerImage = "uwgac/topmed-rstudio"
-defName = "Rdocker"
-defDockerDir = "/home/rstudio"
-defDataMap = None
+defDockerImage = "uwgac/topmed-devel"
+defMapVols = "/projects"
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run R in docker" )
-parser.add_argument( "-L", "--localdir",
-                     help = "full path of local work directory [default: current working directory]" )
-parser.add_argument( "-D", "--dockerdir", default = defDockerDir,
-                     help = "full path of docker work directory [default: " + defDockerDir +"]" )
-parser.add_argument( "-d", "--datamap", default = defDataMap,
-                     help = "local data directory map (e.g., /projects/data:/data) [default: " + str(defDataMap) +"]" )
+parser.add_argument( "-w", "--workdir",
+                     help = "full path of work directory in local host [default: current working directory]" )
+parser.add_argument( "-m", "--mapvols", default = defMapVols,
+                     help = "local host volumes/folder(s) mapped into docker - e.g., '/projects,/home' [default: " +
+                     defMapVols + "]")
+parser.add_argument( "--rlibsuser",
+                     help = "R library (R_LIBS_USER) [default: current working directory]" )
 parser.add_argument( "-I", "--image", default = defDockerImage,
-                     help = "docker image to initiate pipeline execution [default: " + defDockerImage + "]")
-parser.add_argument( "-c", "--createopts", default = defCreateOpts,
-                     help = "docker create container options [default: " + defCreateOpts + "]")
-parser.add_argument( "-e","--existingcontainer", action="store_true", default = False,
-                     help = "start an existing container [default: False]" )
-parser.add_argument( "-n","--name", default = defName,
-                     help = "name of container [default: " + defName + "]" )
-parser.add_argument( "-k", "--keepcontainer", action="store_true", default = False,
-                     help = "Keep the container and do not stop it [default: False]" )
+                     help = "docker image [default: " + defDockerImage + "]")
+parser.add_argument( "-K", "--keepcontainer", action="store_true", default = False,
+                     help = "Keep the container (it can be re-started) [default: False]" )
 parser.add_argument( "-V", "--verbose", action="store_true", default = False,
                      help = "Turn on verbose output [default: False]" )
 parser.add_argument( "-S", "--summary", action="store_true", default = False,
@@ -78,79 +89,64 @@ parser.add_argument( "--version", action="store_true", default = False,
 
 args = parser.parse_args()
 # set result of arg parse_args
-localdir = args.localdir
-dockerdir = args.dockerdir
-datamap = args.datamap
+workdir = args.workdir
+mapvols = args.mapvols
+rlibsuser = args.rlibsuser
 image = args.image
-createopts = args.createopts
-existingcontainer = args.existingcontainer
-name = args.name
 keepcontainer = args.keepcontainer
-verbose = args.verbose
+debug = args.verbose
 summary = args.summary
 # version
 if args.version:
     print(__file__ + " version: " + version)
     sys.exit()
-
+run_cmd = "docker run "
+# working dir
+if workdir == None:
+    workdir = os.getenv('PWD')
+wd_opt = " -w " + workdir
+run_cmd += wd_opt
+# append workdir to mapvols
+mapvols += "," + workdir
+# mapvols - make each mapvol m1:m1
+mv_list = mapvols.split(",")
+vols = ["-v "+ mv+":"+mv for mv in mv_list]
+vols_opt = " ".join(vols)
+run_cmd += " " + vols_opt
+# r libs via environment
+if rlibsuser == None:
+    rlibsuser = workdir
+env_opt = "-e " + "R_LIBS_USER=" + rlibsuser
+run_cmd += " " + env_opt
+# remove container
 if not keepcontainer:
-    createopts = createopts + " --rm"
-# if not using existing container, then process all the args
-if not existingcontainer:
-    # check localdir; if not passed using cwd
-    if localdir == None:
-        localdir = os.getenv('PWD')
-    # check if datamap is specified
-    if datamap == None:
-        dockermap = ""
-    else:
-        if len(datamap.split(":")) == 2:
-            dockermap = " -v " + datamap
-        else:
-            pError("Datamap (" + datamap + ") must be specified as lll:ddd")
-            sys.exit(2)
-else:
-    localdir = "N/A"
-    dockerdir = "N/A"
-    image = "N/A"
-    createopts = "N/A"
+    run_cmd += " --rm"
+# container name
+cname = "R_" + os.getenv("USER")
+run_cmd += " --name " + cname
+# image and command
+run_cmd += " -it " + image + " R"
 # summarize and check for required params
-if summary or verbose:
+if summary or debug:
     Summary("Summary of " + __file__)
     if summary:
         sys.exit()
-print("=====================================================================")
-pInfo("\n\tRunning R in docker image: " + image)
-print("=====================================================================")
-# create container
-if not existingcontainer:
-    createCMD = "docker create " + createopts + " --name " + name + \
-                " -v " + localdir + ":" + dockerdir + dockermap + \
-                " -w " + dockerdir + \
-                " " + image + " R"
-    if verbose:
-        pInfo("Docker create container cmd:\n" + createCMD)
-    process = subprocess.Popen(createCMD, shell=True, stdout=subprocess.PIPE)
-    status = process.wait()
-    pipe = process.stdout
-    msg = pipe.readline()
-    if status:
-        pError("Docker create command failed: " + msg )
-        sys.exit(2)
-# just use existing container
+# check if container exists; if so start it
+c_cmd = 'docker ps -a --filter "name=^"' + cname + ' --format "{{.Names}}"'
+o_cmd = popen(c_cmd)
+c_exists = False
+if len(o_cmd) != 0:
+    c_exists = True
+if c_exists:
+    pInfo("Starting container " + cname)
+    run_cmd = "docker start -a -i " + cname
+    pDebug("Docker cmd: \n" + run_cmd)
+    popen(run_cmd, sys.stdout, sys.stderr)
+    if not keepcontainer:
+        run_cmd = "docker rm -f " + cname
+        pDebug("Docker cmd: \n" + run_cmd)
+        popen(run_cmd, sys.stdout, sys.stderr)
 else:
-    if verbose:
-        pInfo("Use existing container named: " + name)
-
-# start the container
-startCMD = "docker start -i " + name
-if verbose:
-    pInfo("Docker start cmd: " + startCMD)
-process = subprocess.Popen(startCMD, stdout=sys.stdout, stderr=sys.stderr, shell=True)
-status = process.wait()
-if status:
-    pError("Docker start command failed:\n\t" + str(status) )
-    sys.exit(2)
-
-if verbose:
-    pInfo("Python script " + __file__ + " completed without errors")
+    pInfo("Running docker ...")
+    pDebug("Docker cmd: \n" + run_cmd)
+    popen(run_cmd, sys.stdout, sys.stderr)
