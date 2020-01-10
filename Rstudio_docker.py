@@ -9,13 +9,15 @@ import     os
 import     subprocess
 from       argparse import ArgumentParser
 from       datetime import datetime, timedelta
+import     socket
 
 # init globals
-version='1.0'
+version='2.0'
 msgErrPrefix='>>> Error (' + os.path.basename(__file__) +')'
 msgInfoPrefix='>>> Info (' + os.path.basename(__file__) +')'
 debugPrefix='>>> Debug (' + os.path.basename(__file__) +')'
 
+ipinfo = {"host": None, "addr": None}
 # def functions
 def pInfo(msg):
     tmsg=time.asctime()
@@ -29,53 +31,66 @@ def pDebug(msg):
     if debug:
         tmsg=time.asctime()
         print(debugPrefix+tmsg+": "+msg)
+def getIP():
+    ipinfo["host"] = socket.gethostname()
+    ipinfo["addr"] = socket.gethostbyname(ipinfo["host"])
+    return ipinfo
+
+def popen(cmd, sout=subprocess.PIPE, serr=subprocess.PIPE):
+    process = subprocess.Popen(cmd, stdout=sout, stderr=serr, shell=True)
+    status = process.wait()
+    if status != 0:
+        if serr != sys.stderr:
+            pipe = process.stderr
+            eMsg = pipe.readline()
+            eMsg = bytes(eMsg).decode()
+        else:
+            eMsg = "See terminal"
+        pError("Error executing cmd: \n\t" + cmd)
+        pError("Error status: " + str(status) + " - " + eMsg)
+        sys.exit(2)
+    if sout != sys.stdout:
+        pipe = process.stdout
+        sub_out = pipe.readline()
+        # compatibility p2/p3: byte seq or string converts to string
+        sub_out = bytes(sub_out).decode()
+    else:
+        sub_out = ""
+    return sub_out
 
 def Summary(hdr):
     print(hdr)
     print( '\tVersion: ' + version)
 
     print( '\tDocker:' )
-    print( '\t\tContainer name: ' + name )
+    print( '\t\tContainer name: ' + namecontainer )
     print( '\t\tImage: ' + image )
-    print( '\t\tRstudio server port: ' + dockerport )
-    print( '\t\tLocal host port: ' + port )
-    print( '\t\tLocal host IP: ' + ip )
-    print( '\t\tBind-mount local dir: ' + localdir )
-    print( '\t\tBind-mount docker dir: ' + dockerdir )
-    print( '\t\tDatamap: ' + datamap )
+    print( '\t\tRstudio server port: ' + dockerPort )
+    print( '\t\tLocal host port: ' + localport )
+    print( '\t\tLocal host IP: ' + ipinfo["addr"] )
+    print( '\t\tLocal host name: ' + ipinfo["host"] )
+    print( '\t\tMapped volumes: ' + mapvols )
+    print( '\tDocker run command: \n\t' + run_cmd )
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
 
-defDockerImage = "uwgac/topmed-rstudio"
-defName = "rstudio"
-defLocalPort = "8787"
-defDockerDir = "/home/rstudio"
-defHostIP = "localhost"
-defDockerPort = "8787"
-defRunCmd = "run"
-defKillCmd = "kill"
-defDataMap = None
+defDockerImage = "uwgac/tm-rstudio-devel:latest"
+defMapVols = "/projects"
+defCName = "rstudio_docker"
+defLocalPort = "8686"
+dockerPort = "8787"
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run Rstudio server in docker" )
-parser.add_argument( "-L", "--localdir",
-                     help = "full path of local work directory [default: current working directory]" )
-parser.add_argument( "-D", "--dockerdir", default = defDockerDir,
-                     help = "full path of docker work directory [default: " + defDockerDir +"]" )
-parser.add_argument( "-d", "--datamap", default = defDataMap,
-                     help = "local data directory map (e.g., /projects/data:/data) [default: " + str(defDataMap) +"]" )
+parser.add_argument( "-m", "--mapvols", default = defMapVols,
+                     help = "local host volumes/folder(s) mapped into docker - e.g., '/projects,/home' [default: " +
+                     defMapVols + "]")
 parser.add_argument( "-I", "--image", default = defDockerImage,
                      help = "docker image to initiate pipeline execution [default: " + defDockerImage + "]")
-parser.add_argument( "-p", "--port", default = defLocalPort,
+parser.add_argument( "-l", "--localport", default = defLocalPort,
                      help = "Local computer's port mapped to Rstudio in docker [default: " + defLocalPort + "]")
-parser.add_argument( "-i", "--ip", default = defHostIP,
-                     help = "Local computer's IP mapped to docker's IP [default: " + defHostIP + "]")
-parser.add_argument( "--dockerport", default = defDockerPort,
-                     help = "Rstudio server's port in docker [default: " + defDockerPort + "]")
-parser.add_argument( "-n","--name", default = defName,
-                     help = "name of container [default: " + defName + "]" )
-parser.add_argument( "-C","--command", default = defRunCmd,
-                     help = "Docker command (run or kill) [default: " + defRunCmd + "]" )
+parser.add_argument( "-n","--namecontainer", default = defCName,
+                     help = "name of container [default: " + defCName + "]" )
 parser.add_argument( "-V", "--verbose", action="store_true", default = False,
                      help = "Turn on verbose output [default: False]" )
 parser.add_argument( "-S", "--summary", action="store_true", default = False,
@@ -85,85 +100,41 @@ parser.add_argument( "--version", action="store_true", default = False,
 
 args = parser.parse_args()
 # set result of arg parse_args
-datamap = args.datamap
-localdir = args.localdir
-dockerdir = args.dockerdir
-dockerport = args.dockerport
+mapvols = args.mapvols
 image = args.image
-port = args.port
-ip = args.ip
-name = args.name
+localport = args.localport
+image = args.image
+namecontainer = args.namecontainer
 verbose = args.verbose
+debug = verbose
 summary = args.summary
-command = args.command
 # version
 if args.version:
     print(__file__ + " version: " + version)
     sys.exit()
 
-# check localdir; if not passed using cwd
-if localdir == None:
-    localdir = os.getenv('PWD')
+# get ip info
+ipinfo = getIP()
 
-# check local ip
-if ip == defHostIP:
-    ip = "127.0.0.1"
-
-# check if datamap is specified
-if datamap == None:
-    dockermap = ""
-else:
-    if len(datamap.split(":")) == 2:
-        dockermap = " -v " + datamap
-    else:
-        pError("Datamap (" + datamap + ") must be specified as lll:ddd")
-        sys.exit(2)
+# build the docker run command to create and start the container
+run_cmd = "docker run -d -t "
+run_cmd += "--name " + namecontainer
+# mapvols - make each mapvol m1:m1
+mv_list = mapvols.split(",")
+vols = ["-v "+ mv+":"+mv for mv in mv_list]
+vols_opt = " ".join(vols)
+run_cmd += " " + vols_opt
+# port
+run_cmd += " -p " + ipinfo["addr"] + ":" + localport + ":" + dockerPort
+# image
+run_cmd += " " + image
 
 # summarize and check for required params
 if summary or verbose:
     Summary("Summary of " + __file__)
     if summary:
         sys.exit()
-if command == defRunCmd:
-    print("=====================================================================")
-    pInfo("\n\tRunning Rstudio server in docker image: " + image)
-    print("=====================================================================")
-    dockerCMD = "docker run -d -t " + " --name " + name + \
-                " -v " + localdir + ":" + dockerdir + dockermap + \
-                " -w " + dockerdir + \
-                " -p " + ip + ":" + port + ":" + dockerport + \
-                " " + image
-    if verbose:
-        pInfo("Docker cmd:\n\t" + dockerCMD)
-    process = subprocess.Popen(dockerCMD, stdout=sys.stdout, stderr=sys.stderr, shell=True)
-    status = process.wait()
-    if status:
-        pError("Docker run command failed:\n\t" + str(status) )
-        sys.exit(2)
-elif command == defKillCmd:
-    print("=====================================================================")
-    pInfo("\n\tKilling the docker container running Rstudio: " + name)
-    print("=====================================================================")
-    dockerCMD = "docker stop " + name
-    if verbose:
-        pInfo("Docker cmd:\n\t" + dockerCMD)
-    process = subprocess.Popen(dockerCMD, stdout=sys.stdout, stderr=sys.stderr, shell=True)
-    status = process.wait()
-    if status:
-        pError("Docker stop command failed:\n\t" + str(status) )
-        sys.exit(2)
-    dockerCMD = "docker rm " + name
-    if verbose:
-        pInfo("Docker cmd:\n\t" + dockerCMD)
-    process = subprocess.Popen(dockerCMD, stdout=sys.stdout, stderr=sys.stderr, shell=True)
-    status = process.wait()
-    if status:
-        pError("Docker rm command failed:\n\t" + str(status) )
-        sys.exit(2)
-
-else:
-    pError("Invalid command " + command)
-    sys.exit(2)
-
-if verbose:
-    pInfo("Python script " + __file__ + " completed without errors")
+pInfo("Running docker ...")
+pDebug("Docker cmd: \n" + run_cmd)
+sub_out = popen(run_cmd)
+pInfo("Status return: " + sub_out)
