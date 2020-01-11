@@ -70,6 +70,7 @@ def Summary(hdr):
     print( '\t\tLocal host IP: ' + ipinfo["addr"] )
     print( '\t\tLocal host name: ' + ipinfo["host"] )
     print( '\t\tMapped volumes: ' + mapvols )
+    print( '\t\tInclude local host IP: ' + str(hostip))
     print( '\tDocker run command: \n\t' + run_cmd )
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
@@ -89,6 +90,8 @@ parser.add_argument( "-I", "--image", default = defDockerImage,
                      help = "docker image to initiate pipeline execution [default: " + defDockerImage + "]")
 parser.add_argument( "-l", "--localport", default = defLocalPort,
                      help = "Local computer's port mapped to Rstudio in docker [default: " + defLocalPort + "]")
+parser.add_argument( "-H", "--hostip", action="store_true", default = False,
+                     help = "Include local computer's host ip [default: False]")
 parser.add_argument( "-n","--namecontainer", default = defCName,
                      help = "name of container [default: " + defCName + "]" )
 parser.add_argument( "-V", "--verbose", action="store_true", default = False,
@@ -104,6 +107,7 @@ mapvols = args.mapvols
 image = args.image
 localport = args.localport
 image = args.image
+hostip = args.hostip
 namecontainer = args.namecontainer
 verbose = args.verbose
 debug = verbose
@@ -112,7 +116,6 @@ summary = args.summary
 if args.version:
     print(__file__ + " version: " + version)
     sys.exit()
-
 # get ip info
 ipinfo = getIP()
 
@@ -124,8 +127,11 @@ mv_list = mapvols.split(",")
 vols = ["-v "+ mv+":"+mv for mv in mv_list]
 vols_opt = " ".join(vols)
 run_cmd += " " + vols_opt
-# port
-run_cmd += " -p " + ipinfo["addr"] + ":" + localport + ":" + dockerPort
+# host and port
+hp = localport
+if hostip:
+    hp = ipinfo["addr"] + ":" + hp
+run_cmd += " -p " + hp + ":" + dockerPort
 # image
 run_cmd += " " + image
 
