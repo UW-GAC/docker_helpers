@@ -56,26 +56,33 @@ def Summary(hdr):
 
     print( '\tDocker Options:' )
     print( '\t\tKeep container: ' + str(keepcontainer) )
+    print( '\t\tProxy user: ' + defProxyUser )
+    print( '\t\tDocker user: ' + dockeruser)
     print( '\t\tContainer name: ' + cname )
     print( '\t\tImage: ' + image )
-    print( '\t\tvolume opts: ' + vols_opt )
-    print( '\t\tenvironment opts: ' + env_opt )
+    print( '\t\tVolume maps: ' + str(umv_list) )
+    print( '\t\tWorking directory: ' + workdir )
+    print( '\t\tR_LIBS_USER: ' + rlibsuser )
     print( '\tDocker run command: \n\t' + run_cmd)
     tbegin=time.asctime()
     print( '\tTime: ' + tbegin + "\n" )
 
 defDockerImage = "uwgac/topmed-devel"
 defMapVols = "/projects"
+defgid = "2049"
+defProxyUser = "topmed:2049"
 
 # command line parser
 parser = ArgumentParser( description = "Helper function to run R in docker" )
-parser.add_argument( "-w", "--workdir",
-                     help = "full path of work directory in local host [default: current working directory]" )
+parser.add_argument( "-d", "--dockeruser",
+                     help = "Docker user in container (userid[:groupid]) [defaut: local host user]" )
 parser.add_argument( "-m", "--mapvols", default = defMapVols,
-                     help = "local host volumes/folder(s) mapped into docker - e.g., '/projects,/home' [default: " +
+                     help = "local host volumes/folder(s) mapped into docker - comma delimited [default: " +
                      defMapVols + "]")
+parser.add_argument( "-w", "--workdir",
+                     help = "Work directory in docker[default: cwd]")
 parser.add_argument( "--rlibsuser",
-                     help = "R library (R_LIBS_USER) [default: current working directory]" )
+                     help = "R library (R_LIBS_USER) [default: cwd]" )
 parser.add_argument( "-I", "--image", default = defDockerImage,
                      help = "docker image [default: " + defDockerImage + "]")
 parser.add_argument( "-K", "--keepcontainer", action="store_true", default = False,
@@ -89,6 +96,7 @@ parser.add_argument( "--version", action="store_true", default = False,
 
 args = parser.parse_args()
 # set result of arg parse_args
+dockeruser = args.dockeruser
 workdir = args.workdir
 mapvols = args.mapvols
 rlibsuser = args.rlibsuser
@@ -100,24 +108,46 @@ summary = args.summary
 if args.version:
     print(__file__ + " version: " + version)
     sys.exit()
-run_cmd = "docker run "
+# process user (uid,gid) to set in docker
+localUser = os.getenv("USER")
+if dockeruser == None:
+    maxid = 2147483647
+    uid = os.getuid()
+    if uid > maxid:
+        pInfo("User " + localUser + " uid is too large; is too large; switching docker user to " + defProxyUser)
+        dockeruser = defProxyUser
+    else:
+        gid = os.getgid()
+        if gid > maxid:
+            pInfo("User " + localUser + " gid is too large; using gid " + defgid)
+            gid = defgid
+        dockeruser = str(uid) + ":" + str(gid)
 # working dir
 if workdir == None:
-    workdir = os.getenv('PWD')
-wd_opt = " -w " + workdir
-run_cmd += wd_opt
-# append workdir to mapvols
-mapvols += "," + workdir
-# mapvols - make each mapvol m1:m1
-mv_list = mapvols.split(",")
-vols = ["-v "+ mv+":"+mv for mv in mv_list]
-vols_opt = " ".join(vols)
-run_cmd += " " + vols_opt
-# r libs via environment
+    workdir = os.getenv("PWD")
+# rlibsuser
 if rlibsuser == None:
     rlibsuser = workdir
-env_opt = "-e " + "R_LIBS_USER=" + rlibsuser
-run_cmd += " " + env_opt
+
+# build the run cmd
+run_cmd = "docker run "
+run_cmd += " -u " + dockeruser
+# work dir
+run_cmd += " -w " + workdir
+# mapvols - add all directories to map
+allmaps = mapvols + "," + workdir
+if workdir != rlibsuser:
+    allmaps += "," + rlibsuser
+# mapvols - convert to list with -v option added
+mv_list = allmaps.split(",")
+umv_list = []
+[umv_list.append(val) for val in mv_list if val not in umv_list]
+vols = ["-v "+ mv+":"+mv for mv in umv_list]
+vols_opt = " ".join(vols)
+# mapvols - add to run cmd
+run_cmd += " " + vols_opt
+# environment - r libs user
+run_cmd += " -e R_LIBS_USER=" + rlibsuser
 # remove container
 if not keepcontainer:
     run_cmd += " --rm"
